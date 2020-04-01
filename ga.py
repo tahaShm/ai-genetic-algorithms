@@ -47,15 +47,14 @@ class Decoder:
     def __init__(self, encodedTxt) : 
         self.encodedTxt = ''.join(encodedTxt)
         self.numOfWords = len(getWords(self.encodedTxt))
-        print(getWords(self.encodedTxt))
         print(self.numOfWords)
         self.numOfGenerations = 1000
         self.popSize = 500
         self.tournamentSize = 500
-        self.crossoverPoints = 13
-        self.elitismPercentage = 15
-        self.pc = 0.90
-        self.pm = 0.8
+        self.crossoverPoints = 5
+        self.elitismPercentage = 16
+        self.pc = 0.65
+        self.pm = 0.2
         self.chromosomeSet = {}
         self.chromosomes = self.getInitialChromosomes() #[0]: chromosome string, [1]: fitness value, [2]: sqrt of fitness value
         self.chromosomes.sort(key = sortSecond, reverse = True)
@@ -108,13 +107,10 @@ class Decoder:
         
     def chooseParants(self) : 
         parents = []
-        elitism = self.elitismPercentage/100 * self.popSize
-        for i in range(self.popSize) : 
-            if (i < elitism) : 
-                parents.append(self.chromosomes[i])
-            else :
-                newParent = self.getNewParent()
-                parents.append(newParent)
+        elitism = int(self.elitismPercentage/100 * self.popSize)
+        for i in range(self.popSize - elitism) : 
+            newParent = self.getNewParent()
+            parents.append(newParent)
         shuffle(parents)
         return parents
     
@@ -189,7 +185,8 @@ class Decoder:
                 
     def mateParentsAndGetChilds(self, parents) :
         newGeneration = []
-        for i in range(int(self.popSize / 2)) :
+        elitism = int(self.elitismPercentage/100 * self.popSize)
+        for i in range(int((self.popSize - elitism) / 2)) :
             parent1 = parents[(i * 2) % (self.popSize)][0]
             parent2 = parents[(i * 2 + 1) % (self.popSize)][0]
             newChildren = self.crossover(parent1, parent2)
@@ -197,7 +194,8 @@ class Decoder:
             child2 = self.mutateNewChild(newChildren[1])
             newGeneration.append(child1)
             newGeneration.append(child2)
-            
+        for i in range(elitism) : 
+            newGeneration.append(self.chromosomes[i])   
         newGeneration.sort(key = sortSecond, reverse = True)
         return newGeneration
     
@@ -205,28 +203,27 @@ class Decoder:
         newParents = self.chooseParants()
         self.chromosomes = self.mateParentsAndGetChilds(newParents)
     
-            
+    def printIterationInfo(self, iteraiton) :
+        print("iteration:", iteraiton)
+        print("top 5 chromosomes:")
+        for i in range(5) : 
+            print(self.chromosomes[i][0], "  ", self.chromosomes[i][1])
     def decode(self):
         matchedWords = self.chromosomes[0][1]
         iteration = 0
-        # while (matchedWords < self.numOfWords and iteration <= 30) :
-        #     self.generateNewGeneration()
-        #     print("generation:", iteration)
-        #     print("best chromosome: ", self.chromosomes[0][0])
-        #     print("matched words: ", self.chromosomes[0][1])
-        #     print()
-        #     iteration += 1
-        # print("finally: ")
-        # print("best chromosome: ", self.chromosomes[0][0])
-        # print("matched words: ", self.chromosomes[0][1])
-        # print("decoded text: ")
-        # alphabet = "abcdefghijklmnopqrstuvwxyz"
-        # tempEncoded = self.encodedTxt
-        # for i in range(26):
-        #     tempEncoded = tempEncoded.replace(alphabet[i], (self.chromosomes[0][0][i]).upper())
-        # tempDecoded = tempEncoded.lower()
-        # print(tempDecoded)
-        
+        while (matchedWords < self.numOfWords - 50 and iteration <= 4000) :
+            matchedWords = self.chromosomes[0][1]
+            self.generateNewGeneration()
+            iteration += 1
+            self.printIterationInfo(iteration)
+        s = self.chromosomes[0][0]
+        print(s)
+        alphabet = "abcdefghijklmnopqrstuvwxyz"
+        tempEncoded = self.encodedTxt
+        for i in range(len(s)):
+            tempEncoded = tempEncoded.replace(alphabet[i], (s[i]).upper())
+        tempEncoded = tempEncoded.lower()
+        print(tempEncoded)
             
         
         
