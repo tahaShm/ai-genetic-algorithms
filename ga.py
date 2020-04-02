@@ -3,12 +3,13 @@ from random import shuffle
 from random import randrange
 import random
 import math
+import time
 
 def readFile(fileName) :
     file = open(fileName, 'r+')
     fList = file.readlines()
     file.close()
-    fList = [s.replace('\n', '') for s in fList]
+    fList = [s.replace('\n', ' ') for s in fList]
     return fList;
 
 def getDictionary(words):
@@ -21,14 +22,16 @@ def getDictionary(words):
     return wordDic           
 
 def getWords(context) :
-    words = re.findall(r"\w+", context)
+    words = re.split('[^a-zA-Z]', context)
+    words = list(filter(None, words))
     return words
 
 def getListWords(context) :
     words = [] 
     for row in context:
         row = row.lower()
-        words += re.findall(r"\w+", row)
+        words += re.split('[^a-zA-Z]', row)
+        words = list(filter(None, words))
     words = getDictionary(words)
     return words
 
@@ -48,19 +51,15 @@ class Decoder:
         self.encodedTxt = ''.join(encodedTxt)
         self.numOfWords = len(getWords(self.encodedTxt))
         print(self.numOfWords)
-        self.numOfGenerations = 1000
+        self.restartLimitation = 120
         self.popSize = 500
-        self.tournamentSize = 500
         self.crossoverPoints = 5
         self.elitismPercentage = 16
-        self.pc = 0.65
+        self.pc = 0.0
         self.pm = 0.2
         self.chromosomeSet = {}
-        self.chromosomes = self.getInitialChromosomes() #[0]: chromosome string, [1]: fitness value, [2]: sqrt of fitness value
+        self.chromosomes = self.getInitialChromosomes() #[0]: chromosome string, [1]: fitness value
         self.chromosomes.sort(key = sortSecond, reverse = True)
-        # print(self.chromosomes)
-        # print("____________________________________________________________")
-        # print("____________________________________________________________")
         
         
     def getInitialChromosomes(self) :
@@ -70,7 +69,7 @@ class Decoder:
         for i in range(self.popSize):
             newS = ''.join(random.sample(newS,len(newS)))
             fitnessScore = self.getFitness(newS)
-            chromosomes.append([newS, fitnessScore, int(math.sqrt(fitnessScore))])
+            chromosomes.append([newS, fitnessScore])
             self.chromosomeSet[newS] = fitnessScore
         return chromosomes
     
@@ -79,6 +78,15 @@ class Decoder:
         for word in words :
             if (word in globalWords) :
                 fitness += 1
+        return fitness
+    
+    def calculateFitness2(self, words):
+        fitness = 0
+        for word in words :
+            if (word in globalWords) :
+                fitness += 1
+            else :
+                print(word)
         return fitness
                 
     def getFitness(self, s) :
@@ -91,10 +99,7 @@ class Decoder:
         fitnessScore = self.calculateFitness(tempWords)
         return fitnessScore
     
-    def getNewParent(self) : 
-        sumOfFitnesses = 0
-        for i in range(self.popSize) : 
-            sumOfFitnesses += self.chromosomes[i][1]
+    def getNewParent(self, sumOfFitnesses) : 
         randNum = randrange(sumOfFitnesses)
         sumOfFitnesses = 0
         for i in range(self.popSize) : 
@@ -108,8 +113,11 @@ class Decoder:
     def chooseParants(self) : 
         parents = []
         elitism = int(self.elitismPercentage/100 * self.popSize)
+        sumOfFitnesses = 0
+        for i in range(self.popSize) : 
+            sumOfFitnesses += self.chromosomes[i][1]
         for i in range(self.popSize - elitism) : 
-            newParent = self.getNewParent()
+            newParent = self.getNewParent(sumOfFitnesses)
             parents.append(newParent)
         shuffle(parents)
         return parents
@@ -144,27 +152,20 @@ class Decoder:
         randomNum = random.uniform(0, 1)
         if (randomNum <= self.pc) :    
             points = random.sample(range(0, len(p1)), self.crossoverPoints)
-            # print(points)
             child1 = self.getcrossedStr(p1, p2, points)
             child2 = self.getcrossedStr(p2, p1, points)
-            # print(child1)
-            # print(child2)
             return [child1, child2]
         else:
             return [p1, p2]
         
     def mutate(self, child) :
         childList = re.findall(r"[\w']", child)
-        for i in range(len(childList)) : 
-            newRand = random.uniform(0, 1)
-            if (newRand <= self.pm) :
-                # print(i)
-                newRandIndex = randrange(len(childList))
-                while (newRandIndex == i) : 
-                    newRandIndex = randrange(len(childList))
-                tempChar = childList[i]
-                childList[i] = childList[newRandIndex]
-                childList[newRandIndex] = tempChar
+        newRand = random.uniform(0, 1)
+        if (newRand <= self.pm) :
+            points = random.sample(range(0, len(child)), 2)
+            tempChar = childList[points[0]]
+            childList[points[0]] = childList[points[1]]
+            childList[points[1]] = tempChar
         newChild = ''.join(childList)
         return newChild
     def checkChild(self, child):
@@ -181,11 +182,13 @@ class Decoder:
             newFitness = self.getFitness(newChild)
         else :
             newFitness = repetitiveChild[1]
-        return [newChild, newFitness, int(math.sqrt(newFitness))]
+        return [newChild, newFitness]
                 
     def mateParentsAndGetChilds(self, parents) :
         newGeneration = []
         elitism = int(self.elitismPercentage/100 * self.popSize)
+        for i in range(elitism) : 
+            newGeneration.append(self.chromosomes[i])
         for i in range(int((self.popSize - elitism) / 2)) :
             parent1 = parents[(i * 2) % (self.popSize)][0]
             parent2 = parents[(i * 2 + 1) % (self.popSize)][0]
@@ -193,9 +196,7 @@ class Decoder:
             child1 = self.mutateNewChild(newChildren[0])
             child2 = self.mutateNewChild(newChildren[1])
             newGeneration.append(child1)
-            newGeneration.append(child2)
-        for i in range(elitism) : 
-            newGeneration.append(self.chromosomes[i])   
+            newGeneration.append(child2)   
         newGeneration.sort(key = sortSecond, reverse = True)
         return newGeneration
     
@@ -204,18 +205,29 @@ class Decoder:
         self.chromosomes = self.mateParentsAndGetChilds(newParents)
     
     def printIterationInfo(self, iteraiton) :
-        print("iteration:", iteraiton)
-        print("top 5 chromosomes:")
-        for i in range(5) : 
-            print(self.chromosomes[i][0], "  ", self.chromosomes[i][1])
+        print("generation:", iteraiton," decode percentage:", '%.2f'%(self.chromosomes[0][1] / self.numOfWords * 100), '%' )
+            
     def decode(self):
         matchedWords = self.chromosomes[0][1]
         iteration = 0
-        while (matchedWords < self.numOfWords - 50 and iteration <= 4000) :
+        repeated = 0
+        while (matchedWords < self.numOfWords) :
+            if (self.chromosomes[0][1] == matchedWords) :
+                repeated += 1
+            else: 
+                repeated = 0
+            if (repeated == self.restartLimitation) :
+                repeated = 0
+                print("restart due to local maximum")
+                self.chromosomes = self.getInitialChromosomes()
+                self.chromosomes.sort(key = sortSecond, reverse = True)
             matchedWords = self.chromosomes[0][1]
             self.generateNewGeneration()
             iteration += 1
             self.printIterationInfo(iteration)
+        
+        
+        
         s = self.chromosomes[0][0]
         print(s)
         alphabet = "abcdefghijklmnopqrstuvwxyz"
@@ -223,14 +235,13 @@ class Decoder:
         for i in range(len(s)):
             tempEncoded = tempEncoded.replace(alphabet[i], (s[i]).upper())
         tempEncoded = tempEncoded.lower()
-        print(tempEncoded)
+    
             
-        
-        
-    
-    
+                
 globalWords = makeDirectories()[0]
 encodedTxt = makeDirectories()[1]
 d = Decoder(encodedTxt)
-# d.generateNewGeneration()
+start = time.time()
 d.decode()
+end = time.time()
+print("time: ", '%.2f'%(end - start), 'sec')
