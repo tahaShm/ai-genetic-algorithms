@@ -9,7 +9,7 @@ def readFile(fileName) :
     file = open(fileName, 'r+')
     fList = file.readlines()
     file.close()
-    fList = [s.replace('\n', ' ') for s in fList]
+    # fList = [s.replace('\n', ' ') for s in fList]
     return fList;
 
 def getDictionary(words):
@@ -34,8 +34,11 @@ def getListWords(context) :
         words = list(filter(None, words))
     words = getDictionary(words)
     return words
-
-def makeDirectories():    
+def makeDefaultDictionary() :
+    encodedTxt = readFile("encoded_text.txt")
+    encodedTxt = ''.join(encodedTxt)
+    return encodedTxt
+def makeDictoinaries():    
     globalTxt = readFile("global_text.txt")
     encodedTxt = readFile("encoded_text.txt")
     for i in range(len(encodedTxt)) :
@@ -47,15 +50,15 @@ def sortSecond(val):
     return val[1]
 
 class Decoder:
-    def __init__(self, encodedTxt) : 
+    def __init__(self, encodedTxt, defaultEncodedTxt) : 
         self.encodedTxt = ''.join(encodedTxt)
+        self.defaultEncodedTxt = defaultEncodedTxt
         self.numOfWords = len(getWords(self.encodedTxt))
-        print(self.numOfWords)
         self.restartLimitation = 120
         self.popSize = 500
         self.crossoverPoints = 5
         self.elitismPercentage = 16
-        self.pc = 0.0
+        self.pc = 0.65
         self.pm = 0.2
         self.chromosomeSet = {}
         self.chromosomes = self.getInitialChromosomes() #[0]: chromosome string, [1]: fitness value
@@ -204,43 +207,81 @@ class Decoder:
         newParents = self.chooseParants()
         self.chromosomes = self.mateParentsAndGetChilds(newParents)
     
-    def printIterationInfo(self, iteraiton) :
-        print("generation:", iteraiton," decode percentage:", '%.2f'%(self.chromosomes[0][1] / self.numOfWords * 100), '%' )
-            
+    
+    def printDecodedTxt(self, iteration) :
+        print("**** done ****")
+        print("number of generations: ", iteration)
+        print("chromosome: ", self.chromosomes[0][0])
+        print("decoded text: ")
+        print()
+        defaultList = list(self.defaultEncodedTxt)
+        
+        s = self.chromosomes[0][0]
+        alphabet = "abcdefghijklmnopqrstuvwxyz"
+        tempEncoded = self.encodedTxt
+        for i in range(len(s)):
+            tempEncoded = tempEncoded.replace(alphabet[i], (s[i]).upper())
+        tempEncoded = tempEncoded.lower()
+        
+        answerList = s = list(tempEncoded)
+        
+        for i in range(len(defaultList)) : 
+            if defaultList[i].isupper() :
+                answerList[i] = answerList[i].upper()
+        ansTxt = ''.join(answerList)
+        print(ansTxt)
+    
+    def printPercentage(self, previousMatched, currentMatched) : 
+        prevPercentage = int (previousMatched / self.numOfWords * 100)
+        currPrecentage = int (currentMatched / self.numOfWords * 100)
+        progress = 0
+        if (currPrecentage >= 90 and prevPercentage < 90) : 
+            progress = 90
+        elif (currPrecentage >= 80 and prevPercentage < 80) : 
+            progress = 80 
+        elif (currPrecentage >= 70 and prevPercentage < 70) : 
+            progress = 70 
+        elif (currPrecentage >= 60 and prevPercentage < 60) : 
+            progress = 60 
+        elif (currPrecentage >= 50 and prevPercentage < 50) : 
+            progress = 50 
+        elif (currPrecentage >= 40 and prevPercentage < 40) : 
+            progress = 40 
+        elif (currPrecentage >= 30 and prevPercentage < 30) : 
+            progress = 30 
+        elif (currPrecentage >= 20 and prevPercentage < 20) : 
+            progress = 20 
+        elif (currPrecentage >= 10 and prevPercentage < 10) : 
+            progress = 10 
+        if (progress > 0) :
+            print(progress, "%")
+         
     def decode(self):
         matchedWords = self.chromosomes[0][1]
         iteration = 0
         repeated = 0
+        print("decoding...")
         while (matchedWords < self.numOfWords) :
+            self.printPercentage(matchedWords, self.chromosomes[0][1])
             if (self.chromosomes[0][1] == matchedWords) :
                 repeated += 1
             else: 
                 repeated = 0
             if (repeated == self.restartLimitation) :
                 repeated = 0
-                print("restart due to local maximum")
+                print("restart...")
                 self.chromosomes = self.getInitialChromosomes()
                 self.chromosomes.sort(key = sortSecond, reverse = True)
             matchedWords = self.chromosomes[0][1]
             self.generateNewGeneration()
             iteration += 1
-            self.printIterationInfo(iteration)
-        
-        
-        
-        s = self.chromosomes[0][0]
-        print(s)
-        alphabet = "abcdefghijklmnopqrstuvwxyz"
-        tempEncoded = self.encodedTxt
-        for i in range(len(s)):
-            tempEncoded = tempEncoded.replace(alphabet[i], (s[i]).upper())
-        tempEncoded = tempEncoded.lower()
-    
+        self.printDecodedTxt(iteration)
             
                 
-globalWords = makeDirectories()[0]
-encodedTxt = makeDirectories()[1]
-d = Decoder(encodedTxt)
+globalWords = makeDictoinaries()[0]
+encodedTxt = makeDictoinaries()[1]
+defaultEncodedTxt = makeDefaultDictionary()
+d = Decoder(encodedTxt, defaultEncodedTxt)
 start = time.time()
 d.decode()
 end = time.time()
