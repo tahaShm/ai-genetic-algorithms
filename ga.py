@@ -9,7 +9,6 @@ def readFile(fileName) :
     file = open(fileName, 'r+')
     fList = file.readlines()
     file.close()
-    # fList = [s.replace('\n', ' ') for s in fList]
     return fList;
 
 def getDictionary(words):
@@ -81,15 +80,6 @@ class Decoder:
         for word in words :
             if (word in globalWords) :
                 fitness += 1
-        return fitness
-    
-    def calculateFitness2(self, words):
-        fitness = 0
-        for word in words :
-            if (word in globalWords) :
-                fitness += 1
-            else :
-                print(word)
         return fitness
                 
     def getFitness(self, s) :
